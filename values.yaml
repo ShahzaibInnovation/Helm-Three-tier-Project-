@@ -1,0 +1,32 @@
+frontend:
+  replicaCount: 1
+  image: nahid0002/three-tier-frontend:v1
+  containerPort: 80
+  servicePort: 80
+  nodePort: 32000
+
+backend:
+  replicaCount: 1
+  image: nahid0002/three-tier-backend:v1
+  port: 3500
+
+mysql:
+  replicaCount: 1
+  image: mysql:latest
+  port: 3306
+
+  serviceName: mysql-service
+
+  secretName: mysql-secret
+  configName: mysql-config
+
+  user: appuser
+  rootPassword: mysql123
+  database: school
+
+  pvName: mysql-pv
+  pvcName: mysql-pvc
+
+  storage: 2Gi
+  storageClass: manual
+  hostPath: /mnt/data/mysql
