@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # 1. Checkout code
+    # 1. Checkout code (optional, mostly for logs/artifacts)
     - name: Checkout Code
       uses: actions/checkout@v3
 
@@ -26,7 +26,7 @@ jobs:
       run: |
         ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-    # 4. Deploy Helm chart on EC2
+    # 4. Deploy Helm chart on EC2 Minikube
     - name: Deploy Helm Chart on EC2
       run: |
         ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
@@ -41,7 +41,7 @@ jobs:
           # Pull latest changes
           git pull origin main
 
-          # Start Minikube only if it is stopped
+          # Start Minikube only if stopped
           if ! minikube status --format="{{.Host}}" | grep -q "Running"; then
               echo "Minikube is stopped. Starting Minikube..."
               minikube start --driver=docker --memory=2048
@@ -49,19 +49,15 @@ jobs:
               echo "Minikube is already running. Skipping start."
           fi
 
-          # Add Helm repo if needed
-          helm repo add stable https://charts.helm.sh/stable || true
-          helm repo update
-
-          # Upgrade or install Helm release
-          helm upgrade --install myapp ./helm/myapp \
+          # Upgrade or install Helm release (Chart.yaml is in repo root)
+          helm upgrade --install myapp ./ \
             --namespace default \
             --create-namespace \
             --set image.tag=latest
 
-          # Wait for pods to be ready
+          # Wait for all pods to be ready
           kubectl wait --for=condition=Ready pods --all -n default --timeout=300s
 
-          # Verify pods
+          # Show pod status
           kubectl get pods -n default
         EOF
