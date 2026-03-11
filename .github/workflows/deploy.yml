@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # 1. Checkout code (needed if you want to access the repo for any artifacts locally)
+    # 1. Checkout code
     - name: Checkout Code
       uses: actions/checkout@v3
 
@@ -26,28 +26,41 @@ jobs:
       run: |
         ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-    # 4. Deploy Helm chart on EC2 Minikube
+    # 4. Deploy Helm chart on EC2
     - name: Deploy Helm Chart on EC2
       run: |
         ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-          # Navigate to the directory where your repo is cloned
-          cd ~/myapp-repo  # replace with the path on EC2
+          # Clone repo if it does not exist
+          if [ ! -d ~/Helm-Three-tier-Project- ]; then
+              git clone https://github.com/ShahzaibInnovation/Helm-Three-tier-Project-.git ~/Helm-Three-tier-Project-
+          fi
 
-          # Pull the latest changes from GitHub
+          # Navigate to repo folder
+          cd ~/Helm-Three-tier-Project-
+
+          # Pull latest changes
           git pull origin main
 
-          # Start Minikube if not running
-          minikube status || minikube start --driver=docker
+          # Start Minikube only if it is stopped
+          if ! minikube status --format="{{.Host}}" | grep -q "Running"; then
+              echo "Minikube is stopped. Starting Minikube..."
+              minikube start --driver=docker --memory=2048
+          else
+              echo "Minikube is already running. Skipping start."
+          fi
+
+          # Add Helm repo if needed
+          helm repo add stable https://charts.helm.sh/stable || true
+          helm repo update
 
           # Upgrade or install Helm release
-          helm repo update
           helm upgrade --install myapp ./helm/myapp \
             --namespace default \
             --create-namespace \
             --set image.tag=latest
 
-          # Wait for all pods to be ready
-          kubectl wait --for=condition=Ready pods --all -n default --timeout=180s
+          # Wait for pods to be ready
+          kubectl wait --for=condition=Ready pods --all -n default --timeout=300s
 
           # Verify pods
           kubectl get pods -n default
